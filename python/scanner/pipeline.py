@@ -39,8 +39,13 @@ def scan_frame(img: np.ndarray) -> FrameResult:
     return FrameResult(gray=gray, edges=edges, corners=corners, ratio=ratio)
 
 
-def scan_capture(img: np.ndarray, corners_full: np.ndarray, mode: str = "adaptive") -> np.ndarray:
-    warped = warp_document(img, corners_full)
+def scan_capture(
+    img: np.ndarray,
+    corners_full: np.ndarray,
+    mode: str = "adaptive",
+    aspect_ratio: float | None = None,
+) -> np.ndarray:
+    warped = warp_document(img, corners_full, aspect_ratio=aspect_ratio)
     return enhance(warped, mode)
 
 

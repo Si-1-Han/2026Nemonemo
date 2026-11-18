@@ -40,7 +40,7 @@ class CaptureResult {
 /// 촬영한 JPEG 바이트를 처리한다. Isolate 안에서 호출할 것.
 ///
 /// [previewCorners]: 프리뷰에서 추적하던 꼭짓점 (0~1 정규화). 재검출 실패 시 사용.
-CaptureResult? processCapture(Uint8List jpeg, Quad? previewCorners) {
+CaptureResult? processCapture(Uint8List jpeg, Quad? previewCorners, {double? aspectRatio}) {
   // imdecode 는 EXIF 회전 정보를 반영해 똑바로 세운 이미지를 준다.
   final img = cv.imdecode(jpeg, cv.IMREAD_COLOR);
   if (img.isEmpty) return null;
@@ -53,7 +53,7 @@ CaptureResult? processCapture(Uint8List jpeg, Quad? previewCorners) {
     return null;
   }
 
-  final warped = warpDocument(img, corners);
+  final warped = warpDocument(img, corners, aspectRatio: aspectRatio);
   img.dispose();
   final bytes = encodeJpeg(warped, quality: 95);
   warped.dispose();

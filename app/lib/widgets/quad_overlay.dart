@@ -1,5 +1,5 @@
 // 프리뷰 위에 검출된 사각형을 그리는 위젯 (담당: 전성재)
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../pipeline/quad.dart';
 

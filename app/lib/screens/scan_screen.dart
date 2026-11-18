@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'dart:isolate';
 
 import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../camera/frame_processor.dart';
 import '../pipeline/quad.dart';
@@ -11,6 +11,8 @@ import '../pipeline/scanner.dart';
 import '../pipeline/tracker.dart';
 import '../widgets/quad_overlay.dart';
 import 'result_screen.dart';
+
+enum _PaperRatio { detected, a4Portrait, a4Landscape }
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -29,6 +31,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   bool _autoCapture = true;
   bool _capturing = false;
   bool _showStats = true;
+  _PaperRatio _paperRatio = _PaperRatio.detected;
+  double? get _aspectRatio => switch (_paperRatio) {
+        _PaperRatio.detected => null,
+        _PaperRatio.a4Portrait => 1 / 1.41421356237,
+        _PaperRatio.a4Landscape => 1.41421356237,
+      };
 
   @override
   void initState() {
@@ -107,7 +115,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       final file = await c.takePicture();
       final jpeg = await file.readAsBytes();
       final preview = _quad;
-      final result = await Isolate.run(() => processCapture(jpeg, preview));
+      final aspectRatio = _aspectRatio;
+      final result = await Isolate.run(() => processCapture(jpeg, preview, aspectRatio: aspectRatio));
       if (!mounted) return;
       if (result == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -143,6 +152,17 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
+          PopupMenuButton<_PaperRatio>(
+            tooltip: '문서 비율',
+            initialValue: _paperRatio,
+            onSelected: (ratio) => setState(() => _paperRatio = ratio),
+            itemBuilder: (_) => const [
+              PopupMenuItem<_PaperRatio>(value: _PaperRatio.detected, child: Text('검출 비율')),
+              PopupMenuItem<_PaperRatio>(value: _PaperRatio.a4Portrait, child: Text('A4 세로')),
+              PopupMenuItem<_PaperRatio>(value: _PaperRatio.a4Landscape, child: Text('A4 가로')),
+            ],
+            icon: const Icon(Icons.aspect_ratio),
+          ),
           IconButton(
             tooltip: '성능 표시',
             icon: Icon(_showStats ? Icons.speed : Icons.speed_outlined),
@@ -189,6 +209,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                       autoCapture: _autoCapture,
                       onAutoChanged: (v) => setState(() => _autoCapture = v),
                       onCapture: _capturing ? null : _capture,
+                      aspectRatio: _aspectRatio,
                     ),
                   ],
                 ),
@@ -218,10 +239,11 @@ class _StatsBadge extends StatelessWidget {
 }
 
 class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.autoCapture, required this.onAutoChanged, required this.onCapture});
+  const _BottomBar({required this.autoCapture, required this.onAutoChanged, required this.onCapture, required this.aspectRatio});
   final bool autoCapture;
   final ValueChanged<bool> onAutoChanged;
   final VoidCallback? onCapture;
+  final double? aspectRatio;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -241,7 +263,15 @@ class _BottomBar extends StatelessWidget {
                 backgroundColor: Colors.white,
                 child: const Icon(Icons.camera_alt, color: Colors.black, size: 36),
               ),
-              const Expanded(child: SizedBox()),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    aspectRatio == null ? '검출 비율' : 'A4 ${aspectRatio! < 1 ? '세로' : '가로'}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
