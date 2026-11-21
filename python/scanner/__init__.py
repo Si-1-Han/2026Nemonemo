@@ -7,10 +7,10 @@ from .edges import detect_edges
 from .enhance import enhance
 from .pipeline import FrameResult, scan, scan_capture, scan_frame
 from .preprocess import preprocess
-from .tracker import CornerTracker
+from .tracker import CornerTracker, KalmanCornerTracker
 from .warp import warp_document
 
 __all__ = [
-    "preprocess", "detect_edges", "find_document", "order_corners", "CornerTracker",
+    "preprocess", "detect_edges", "find_document", "order_corners", "CornerTracker", "KalmanCornerTracker",
     "warp_document", "enhance", "scan_frame", "scan_capture", "scan", "FrameResult",
 ]

@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from scanner.tracker import CornerTracker
+from scanner.tracker import CornerTracker, KalmanCornerTracker
 
 # scanner/__init__.py 가 preprocess 함수를 내보내서 모듈 이름이 가려지므로 importlib 로 가져온다
 _pre = importlib.import_module("scanner.preprocess")
@@ -61,20 +61,38 @@ def test_module_constants_match(module):
         assert dart[dk] == pytest.approx(value), f"{module}: Python {key}={value}, Dart {dk}={dart[dk]}"
 
 
-def test_tracker_defaults_match():
+# Python 은 처리 이미지 픽셀 단위, Dart 는 0~1 정규화 단위인 파라미터
+PIXEL_PARAMS = {"move_tol", "jump_tol"}
+
+
+def dart_tracker_defaults() -> dict[str, float]:
     src = (DART_DIR / "tracker.dart").read_text(encoding="utf-8")
     dart = {}
     for m in re.finditer(r"this\.(\w+)\s*=\s*([-\d.\s/*]+?)\s*,", src):
         dart[m[1]] = float(eval(m[2], {"__builtins__": {}}))  # 숫자 계산식만 허용
+    return dart
 
-    params = inspect.signature(CornerTracker.__init__).parameters
-    for name, p in params.items():
-        if name == "self" or p.default is inspect.Parameter.empty:
-            continue
+
+def python_defaults(cls) -> dict[str, float]:
+    return {name: float(p.default) for name, p in inspect.signature(cls.__init__).parameters.items()
+            if name != "self" and p.default is not inspect.Parameter.empty}
+
+
+def test_tracker_defaults_match():
+    dart = dart_tracker_defaults()
+    for name, value in python_defaults(CornerTracker).items():
         dk = snake_to_camel(name)
         assert dk in dart, f"tracker.dart 에 {dk} 기본값이 없다"
-        expected = float(p.default)
-        if name == "move_tol":
-            # Python 은 처리 이미지 픽셀 단위, Dart 는 0~1 정규화 단위
-            expected /= _pre.PROCESS_SIZE
-        assert dart[dk] == pytest.approx(expected), f"tracker: Python {name}={p.default}, Dart {dk}={dart[dk]}"
+        expected = value / _pre.PROCESS_SIZE if name in PIXEL_PARAMS else value
+        assert dart[dk] == pytest.approx(expected), f"tracker: Python {name}={value}, Dart {dk}={dart[dk]}"
+
+
+def test_kalman_tracker_defaults_match():
+    # Dart 는 공통 파라미터를 super.xxx 로 넘겨 CornerTracker 기본값을 그대로 쓴다.
+    # Python 도 공통 파라미터 기본값이 CornerTracker 와 같아야 한다.
+    base, kalman = python_defaults(CornerTracker), python_defaults(KalmanCornerTracker)
+    for name, value in kalman.items():
+        if name in base:
+            assert value == base[name], f"KalmanCornerTracker.{name}={value}, CornerTracker.{name}={base[name]}"
+    dart = dart_tracker_defaults()
+    assert dart.get("processNoise") == pytest.approx(kalman["process_noise"])
