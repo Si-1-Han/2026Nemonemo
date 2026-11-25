@@ -6,6 +6,7 @@
 사용법:
     python experiments/tracker_video.py data/videos/sample.mp4
     python experiments/tracker_video.py 0          # 웹캠
+    python experiments/tracker_video.py data/videos/sample.mp4 --kalman   # 칼만 필터로 비교
 키: q 종료, space 일시정지
 """
 import sys
@@ -16,7 +17,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "python"))
-from scanner import CornerTracker, scan_frame  # noqa: E402
+from scanner import CornerTracker, KalmanCornerTracker, scan_frame  # noqa: E402
 
 
 def jitter(seq):
@@ -26,9 +27,11 @@ def jitter(seq):
 
 
 def main() -> None:
-    src = sys.argv[1] if len(sys.argv) > 1 else "0"
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    use_kalman = "--kalman" in sys.argv
+    src = args[0] if args else "0"
     cap = cv2.VideoCapture(int(src) if src.isdigit() else src)
-    tracker = CornerTracker()
+    tracker = KalmanCornerTracker() if use_kalman else CornerTracker()
     raw_seq, smooth_seq, frames, detected, stable_frames = [], [], 0, 0, 0
     paused = False
 
@@ -64,7 +67,7 @@ def main() -> None:
     cap.release()
     cv2.destroyAllWindows()
     if frames:
-        print(f"프레임 {frames}, 검출률 {detected / frames:.1%}, 안정 프레임 {stable_frames}")
+        print(f"[{type(tracker).__name__}] 프레임 {frames}, 검출률 {detected / frames:.1%}, 안정 프레임 {stable_frames}")
         print(f"jitter(px, 처리 이미지 기준)  원본 {jitter(raw_seq):.2f}  →  보정 {jitter(smooth_seq):.2f}")
 
 
